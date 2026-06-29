@@ -69,11 +69,15 @@ echo "==========================================================================
 # 3. Format Data for nnUNet
 # ------------------------------------------------------------------------------
 echo -e "\n>>> STEP 1: Formatting raw data to nnUNet structures..."
-# Run the python script to explicitly copy images and generate dataset.json
-python "$WORKSPACE_DIR/nnunet_prepare.py" \
-    --source_dir "$SOURCE_DATA_DIR" \
-    --nnunet_raw_dir "$nnUNet_raw_data_base/nnUNet_raw_data" \
-    --splits_json "$CUSTOM_SPLITS_FILE"
+if [ -f "$WORKSPACE_DIR/.format_complete" ]; then
+    echo "Data formatting already complete. Skipping..."
+else
+    python "$WORKSPACE_DIR/nnunet_prepare.py" \
+        --source_dir "$SOURCE_DATA_DIR" \
+        --nnunet_raw_dir "$nnUNet_raw_data_base/nnUNet_raw_data" \
+        --splits_json "$CUSTOM_SPLITS_FILE"
+    touch "$WORKSPACE_DIR/.format_complete"
+fi
 
 # 4. Plan and Preprocess
 # ------------------------------------------------------------------------------
@@ -84,11 +88,16 @@ nnUNet_plan_and_preprocess -t $TASK_ID --verify_dataset_integrity
 # 5. Zonal Mask Injection
 # ------------------------------------------------------------------------------
 echo -e "\n>>> STEP 3: Injecting Zonal Masks into Preprocessed Cache..."
-# The custom trainer (myTrainer_zonal) expects the zonal masks to be dynamically
-# cropped and cached as .npz files just like the MRI images.
-python "$WORKSPACE_DIR/nnunet_zonal_integration.py" \
-    --zonal_masks_dir "$SOURCE_DATA_DIR/zonal_masks" \
-    --nnunet_preprocessed_dir "$nnUNet_preprocessed/$TASK_NAME/nnUNetData_plans_v2.1_stage0"
+if [ -f "$WORKSPACE_DIR/.zonal_integration_complete" ]; then
+    echo "Zonal integration already complete. Skipping..."
+else
+    # The custom trainer (myTrainer_zonal) expects the zonal masks to be dynamically
+    # cropped and cached as .npz files just like the MRI images.
+    python "$WORKSPACE_DIR/nnunet_zonal_integration.py" \
+        --zonal_masks_dir "$SOURCE_DATA_DIR/zonal_masks" \
+        --nnunet_preprocessed_dir "$nnUNet_preprocessed/$TASK_NAME/nnUNetData_plans_v2.1_stage0"
+    touch "$WORKSPACE_DIR/.zonal_integration_complete"
+fi
 
 # 6. Train the Model
 # ------------------------------------------------------------------------------
