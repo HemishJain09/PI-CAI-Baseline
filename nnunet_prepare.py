@@ -65,25 +65,18 @@ def prepare_nnunet_data(
         dest_hbv = imagesTr / f"{case}_0002.nii.gz"
         dest_label = labelsTr / f"{case}.nii.gz"
         
-        try:
-            if not dest_t2.exists(): os.symlink(t2_file, dest_t2)
-            if not dest_adc.exists(): os.symlink(adc_file, dest_adc)
-            if not dest_hbv.exists(): os.symlink(hbv_file, dest_hbv)
-        except OSError:
-            # Fallback to copy if symlink fails
-            if not dest_t2.exists(): shutil.copy(t2_file, dest_t2)
-            if not dest_adc.exists(): shutil.copy(adc_file, dest_adc)
-            if not dest_hbv.exists(): shutil.copy(hbv_file, dest_hbv)
+        # Explicitly copy instead of symlink because Google Drive mounted on Colab 
+        # strictly rejects cross-filesystem symlinks, and we need the files on the fast NVMe disk.
+        if not dest_t2.exists(): shutil.copy2(t2_file, dest_t2)
+        if not dest_adc.exists(): shutil.copy2(adc_file, dest_adc)
+        if not dest_hbv.exists(): shutil.copy2(hbv_file, dest_hbv)
 
         # Handle Label
         if not dest_label.exists():
             if lesion_file.exists():
-                try:
-                    os.symlink(lesion_file, dest_label)
-                except OSError:
-                    shutil.copy(lesion_file, dest_label)
+                shutil.copy2(lesion_file, dest_label)
             else:
-                # If lesion mask is missing (clinically negative), we must generate a zero mask for nnUNet
+                # If lesion mask is missing (clinically negative), generate a zero mask
                 generate_empty_mask(t2_file, dest_label)
                 
     # Generate dataset.json
@@ -119,19 +112,21 @@ def prepare_nnunet_data(
     # Copy splits.json if provided
     if splits_json_path and splits_json_path.exists():
         dest_splits = task_dir / "splits.json"
-        shutil.copy(splits_json_path, dest_splits)
+        shutil.copy2(splits_json_path, dest_splits)
         print(f"Copied custom cross-validation splits to {dest_splits}")
 
+import argparse
+
 if __name__ == '__main__':
-    # Local DGX paths
-    # These should be adjusted by the user to point to their DGX mounted paths
-    SOURCE_DATA_DIR = Path("/Users/hemishjain/Desktop/PI-CAI/baseline/data")
-    NNUNET_RAW_DIR = Path("/Users/hemishjain/Desktop/PI-CAI/baseline/nnUNet_raw_data_base/nnUNet_raw_data")
-    SPLITS_FILE = Path("/Users/hemishjain/Desktop/PI-CAI/baseline/splits.json")
+    parser = argparse.ArgumentParser(description="Prepare PI-CAI data for nnUNet.")
+    parser.add_argument("--source_dir", type=str, required=True, help="Path to raw preprocessed data in Google Drive.")
+    parser.add_argument("--nnunet_raw_dir", type=str, required=True, help="Path to local NVMe workspace nnUNet_raw_data directory.")
+    parser.add_argument("--splits_json", type=str, default=None, help="Path to custom splits.json.")
+    args = parser.parse_args()
     
     prepare_nnunet_data(
-        source_dir=SOURCE_DATA_DIR,
-        nnunet_raw_dir=NNUNET_RAW_DIR,
+        source_dir=Path(args.source_dir),
+        nnunet_raw_dir=Path(args.nnunet_raw_dir),
         task_name="Task2302_z-nnmnet",
-        splits_json_path=SPLITS_FILE
+        splits_json_path=Path(args.splits_json) if args.splits_json else None
     )

@@ -5,10 +5,11 @@ set -e
 # PI-CAI Z-SSMNet nnUNet Pipeline Orchestrator for DGX Servers
 # ==============================================================================
 
-# 1. Define Paths (Adjust these absolute paths for your DGX server)
+# 1. Define Paths 
 # ------------------------------------------------------------------------------
-WORKSPACE_DIR="/Users/hemishjain/Desktop/PI-CAI/baseline"
-SOURCE_DATA_DIR="$WORKSPACE_DIR/data" # Should contain t2/, adc_reg/, etc.
+# These are expected to be set by the Colab Notebook environment
+WORKSPACE_DIR="${WORKSPACE_DIR:-/content/PI-CAI_Workspace}"
+SOURCE_DATA_DIR="${SOURCE_DATA_DIR:-/content/drive/MyDrive/PI-CAI_pre-processed}"
 CUSTOM_SPLITS_FILE="$WORKSPACE_DIR/splits.json"
 TASK_NAME="Task2302_z-nnmnet"
 TASK_ID="2302"
@@ -17,7 +18,8 @@ TASK_ID="2302"
 # ------------------------------------------------------------------------------
 export nnUNet_raw_data_base="$WORKSPACE_DIR/nnUNet_raw_data_base"
 export nnUNet_preprocessed="$WORKSPACE_DIR/nnUNet_preprocessed"
-export RESULTS_FOLDER="$WORKSPACE_DIR/results"
+# Results folder should point to Google Drive to save checkpoints safely
+export RESULTS_FOLDER="${RESULTS_FOLDER:-/content/drive/MyDrive/PI-CAI_Results}"
 
 # Ensure directories exist
 mkdir -p "$nnUNet_raw_data_base"
@@ -29,7 +31,7 @@ mkdir -p "$RESULTS_FOLDER"
 echo "=============================================================================="
 echo "Patching native nnUNet installation with Z-SSMNet custom files..."
 NNUNET_PKG=$(python -c 'import nnunet, os; print(os.path.dirname(nnunet.__file__))')
-DOCKER_FILES="/Users/hemishjain/Desktop/PI-CAI/Z-SSMNet/src/z_ssmnet/z_nnmnet/training_docker"
+DOCKER_FILES="$WORKSPACE_DIR/../Z-SSMNet/src/z_ssmnet/z_nnmnet/training_docker"
 
 if [ -d "$NNUNET_PKG" ] && [ -d "$DOCKER_FILES" ]; then
     cp "$DOCKER_FILES/nnUNetTrainerV2_focalLoss.py" "$NNUNET_PKG/training/network_training/nnUNet_variants/loss_function/nnUNetTrainerV2_focalLoss.py"
@@ -56,8 +58,11 @@ echo "==========================================================================
 # 3. Format Data for nnUNet
 # ------------------------------------------------------------------------------
 echo -e "\n>>> STEP 1: Formatting raw data to nnUNet structures..."
-# Run the python script to symlink images and generate dataset.json
-python "$WORKSPACE_DIR/nnunet_prepare.py"
+# Run the python script to explicitly copy images and generate dataset.json
+python "$WORKSPACE_DIR/nnunet_prepare.py" \
+    --source_dir "$SOURCE_DATA_DIR" \
+    --nnunet_raw_dir "$nnUNet_raw_data_base/nnUNet_raw_data" \
+    --splits_json "$CUSTOM_SPLITS_FILE"
 
 # 4. Plan and Preprocess
 # ------------------------------------------------------------------------------
@@ -70,7 +75,9 @@ nnUNet_plan_and_preprocess -t $TASK_ID --verify_dataset_integrity
 echo -e "\n>>> STEP 3: Injecting Zonal Masks into Preprocessed Cache..."
 # The custom trainer (myTrainer_zonal) expects the zonal masks to be dynamically
 # cropped and cached as .npz files just like the MRI images.
-python "$WORKSPACE_DIR/nnunet_zonal_integration.py"
+python "$WORKSPACE_DIR/nnunet_zonal_integration.py" \
+    --zonal_masks_dir "$SOURCE_DATA_DIR/zonal_masks" \
+    --nnunet_preprocessed_dir "$nnUNet_preprocessed/$TASK_NAME/nnUNetData_plans_v2.1_stage0"
 
 # 6. Train the Model
 # ------------------------------------------------------------------------------

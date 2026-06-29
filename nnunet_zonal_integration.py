@@ -69,14 +69,15 @@ def prepare_zonal_mask_npz(
             # The custom myTrainer_zonal expects this file to exist alongside the image .npz
             np.savez_compressed(nnunet_preprocessed_dir / f"{file_name}_seg.npz", data=mask_npz)
 
+import argparse
+
 if __name__ == "__main__":
-    # Local DGX paths (User should adjust these)
-    ZONAL_MASKS_DIR = Path("/Users/hemishjain/Desktop/PI-CAI/baseline/data/zonal_masks")
-    
-    # nnUNet typically saves preprocessed data here for 3D full resolution:
-    NNUNET_PREPROCESSED_DIR = Path("/Users/hemishjain/Desktop/PI-CAI/baseline/nnUNet_preprocessed/Task2302_z-nnmnet/nnUNetData_plans_v2.1_stage0")
+    parser = argparse.ArgumentParser(description="Inject Zonal Masks into nnUNet.")
+    parser.add_argument("--zonal_masks_dir", type=str, required=True, help="Path to raw preprocessed zonal masks in Google Drive.")
+    parser.add_argument("--nnunet_preprocessed_dir", type=str, required=True, help="Path to local NVMe nnUNetData_plans_v2.1_stage0 directory.")
+    args = parser.parse_args()
     
     prepare_zonal_mask_npz(
-        zonal_masks_dir=ZONAL_MASKS_DIR,
-        nnunet_preprocessed_dir=NNUNET_PREPROCESSED_DIR
+        zonal_masks_dir=Path(args.zonal_masks_dir),
+        nnunet_preprocessed_dir=Path(args.nnunet_preprocessed_dir)
     )
