@@ -30,8 +30,19 @@ mkdir -p "$RESULTS_FOLDER"
 # ------------------------------------------------------------------------------
 echo "=============================================================================="
 echo "Patching native nnUNet installation with Z-SSMNet custom files..."
-NNUNET_PKG=$(python -c 'import nnunet, os; print(os.path.dirname(nnunet.__file__))')
-DOCKER_FILES="$WORKSPACE_DIR/../Z-SSMNet/src/z_ssmnet/z_nnmnet/training_docker"
+NNUNET_PKG=$(python -c 'import nnunet, os; print(os.path.dirname(nnunet.__file__))' 2>/dev/null)
+
+# Colab Fallback for finding nnUNet package
+if [ -z "$NNUNET_PKG" ] || [ ! -d "$NNUNET_PKG" ]; then
+    NNUNET_PKG=$(find /usr/local/lib -type d -name "nnunet" 2>/dev/null | head -n 1)
+fi
+
+# Resolve Z-SSMNet path
+if [ -d "/content/PI-CAI_Workspace/Z-SSMNet/src/z_ssmnet/z_nnmnet/training_docker" ]; then
+    DOCKER_FILES="/content/PI-CAI_Workspace/Z-SSMNet/src/z_ssmnet/z_nnmnet/training_docker"
+else
+    DOCKER_FILES="$WORKSPACE_DIR/../Z-SSMNet/src/z_ssmnet/z_nnmnet/training_docker"
+fi
 
 if [ -d "$NNUNET_PKG" ] && [ -d "$DOCKER_FILES" ]; then
     cp "$DOCKER_FILES/nnUNetTrainerV2_focalLoss.py" "$NNUNET_PKG/training/network_training/nnUNet_variants/loss_function/nnUNetTrainerV2_focalLoss.py"
