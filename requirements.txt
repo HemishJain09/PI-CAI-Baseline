@@ -1,0 +1,12 @@
+pandas
+numpy
+SimpleITK
+scipy
+torch
+torchvision
+tqdm
+scikit-learn
+picai_eval
+tensorboard
+nnunet
+report_guided_annotation
