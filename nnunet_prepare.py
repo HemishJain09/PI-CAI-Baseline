@@ -71,12 +71,22 @@ def prepare_nnunet_data(
         if not dest_adc.exists(): shutil.copy2(adc_file, dest_adc)
         if not dest_hbv.exists(): shutil.copy2(hbv_file, dest_hbv)
 
-        # Handle Label
+        # Handle Label (and protect against corrupted PI-CAI mask files)
         if not dest_label.exists():
-            if lesion_file.exists():
+            is_valid_mask = False
+            if lesion_file.exists() and lesion_file.stat().st_size > 348:
+                try:
+                    reader = sitk.ImageFileReader()
+                    reader.SetFileName(str(lesion_file))
+                    reader.ReadImageInformation()
+                    is_valid_mask = True
+                except Exception:
+                    pass
+            
+            if is_valid_mask:
                 shutil.copy2(lesion_file, dest_label)
             else:
-                # If lesion mask is missing (clinically negative), generate a zero mask
+                # If lesion mask is missing (clinically negative) or corrupted, generate a zero mask
                 generate_empty_mask(t2_file, dest_label)
                 
     # Generate dataset.json
