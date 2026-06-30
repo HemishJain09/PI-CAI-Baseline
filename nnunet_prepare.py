@@ -18,7 +18,8 @@ def prepare_nnunet_data(
     source_dir: Path, 
     nnunet_raw_dir: Path, 
     task_name: str = "Task2302_z-nnmnet",
-    splits_json_path: Path = None
+    splits_json_path: Path = None,
+    max_cases: int = None
 ):
     print(f"Preparing nnUNet dataset: {task_name}")
     
@@ -36,9 +37,16 @@ def prepare_nnunet_data(
     
     # Get all patient cases from T2 directory
     t2_files = list(t2_dir.glob("*.nii.gz"))
-    cases = [f.name.replace(".nii.gz", "") for f in t2_files]
+    cases = sorted([f.name.replace(".nii.gz", "") for f in t2_files])
     
     print(f"Found {len(cases)} cases in {t2_dir}")
+    
+    # Optionally limit the number of cases for sanity testing
+    if max_cases is not None and max_cases < len(cases):
+        import random
+        random.seed(42)
+        cases = random.sample(cases, max_cases)
+        print(f"Subset mode: randomly selected {max_cases} cases for processing.")
     
     valid_cases = []
     
@@ -56,10 +64,6 @@ def prepare_nnunet_data(
         valid_cases.append(case)
         
         # nnUNet requires channels to be appended as _0000, _0001, etc.
-        # Create Symlinks instead of copying to save disk space if possible, 
-        # but shutil.copy is safer across different filesystems.
-        # We will use symlinks to save DGX storage (if supported) or copy.
-        
         dest_t2 = imagesTr / f"{case}_0000.nii.gz"
         dest_adc = imagesTr / f"{case}_0001.nii.gz"
         dest_hbv = imagesTr / f"{case}_0002.nii.gz"
@@ -132,11 +136,13 @@ if __name__ == '__main__':
     parser.add_argument("--source_dir", type=str, required=True, help="Path to raw preprocessed data in Google Drive.")
     parser.add_argument("--nnunet_raw_dir", type=str, required=True, help="Path to local NVMe workspace nnUNet_raw_data directory.")
     parser.add_argument("--splits_json", type=str, default=None, help="Path to custom splits.json.")
+    parser.add_argument("--max_cases", type=int, default=None, help="Limit the number of cases to process (for sanity testing).")
     args = parser.parse_args()
     
     prepare_nnunet_data(
         source_dir=Path(args.source_dir),
         nnunet_raw_dir=Path(args.nnunet_raw_dir),
         task_name="Task2302_z-nnmnet",
-        splits_json_path=Path(args.splits_json) if args.splits_json else None
+        splits_json_path=Path(args.splits_json) if args.splits_json else None,
+        max_cases=args.max_cases
     )
