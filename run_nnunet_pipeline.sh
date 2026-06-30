@@ -18,6 +18,8 @@ TASK_ID="2302"
 MAX_CASES="${MAX_CASES:-}"
 # Training epochs: set MAX_EPOCHS to override the default 500 (e.g. 5 for sanity check)
 MAX_EPOCHS="${MAX_EPOCHS:-}"
+# Domain adaptation: set TRAIN_CENTERS to a comma-separated list of centers to train on (e.g. "RUMC,ZGT")
+TRAIN_CENTERS="${TRAIN_CENTERS:-}"
 
 # 2. Export strict nnUNet Environment Variables
 # ------------------------------------------------------------------------------
@@ -79,7 +81,18 @@ echo "nnUNet_preprocessed : $nnUNet_preprocessed"
 echo "RESULTS_FOLDER      : $RESULTS_FOLDER"
 echo "MAX_CASES           : ${MAX_CASES:-all}"
 echo "MAX_EPOCHS          : ${MAX_EPOCHS:-500 (default)}"
+echo "TRAIN_CENTERS       : ${TRAIN_CENTERS:-all (default)}"
 echo "=============================================================================="
+
+# 2.7 Domain Adaptation Splits
+# ------------------------------------------------------------------------------
+if [ -n "$TRAIN_CENTERS" ]; then
+    echo -e "\n>>> STEP 0: Generating Domain Adaptation Splits for Centers: $TRAIN_CENTERS..."
+    python "$WORKSPACE_DIR/create_domain_splits.py" \
+        --marksheet "$WORKSPACE_DIR/marksheet.csv" \
+        --output "$CUSTOM_SPLITS_FILE" \
+        --centers "$TRAIN_CENTERS"
+fi
 
 # 3. Format Data for nnUNet
 # ------------------------------------------------------------------------------
