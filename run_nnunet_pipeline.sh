@@ -176,17 +176,13 @@ OUTPUT_DIR="$RESULTS_FOLDER/nnUNet/3d_fullres/$TASK_NAME/${TRAINER}__nnUNetPlans
 # Override max_num_epochs if MAX_EPOCHS is set (for sanity testing)
 if [ -n "$MAX_EPOCHS" ]; then
     echo "Overriding max_num_epochs to $MAX_EPOCHS for sanity testing..."
-    python -c "
-import importlib, sys
-sys.path.insert(0, '$(python -c "import nnunet, os; print(os.path.dirname(nnunet.__file__))")')
-trainer_path = '$(python -c "import nnunet, os; print(os.path.dirname(nnunet.__file__))")/training/network_training/MNet_myTrainer_zonal.py'
-with open(trainer_path, 'r') as f:
-    content = f.read()
-content = content.replace('self.max_num_epochs = 500', 'self.max_num_epochs = $MAX_EPOCHS')
-with open(trainer_path, 'w') as f:
-    f.write(content)
-print(f'Patched max_num_epochs to $MAX_EPOCHS')
-"
+    TRAINER_FILE="$NNUNET_PKG/training/network_training/MNet_myTrainer_zonal.py"
+    if [ -f "$TRAINER_FILE" ]; then
+        sed -i "s/self.max_num_epochs = 500/self.max_num_epochs = $MAX_EPOCHS/" "$TRAINER_FILE"
+        echo "Patched max_num_epochs to $MAX_EPOCHS in $TRAINER_FILE"
+    else
+        echo "WARNING: Could not find trainer file to patch epochs: $TRAINER_FILE"
+    fi
 fi
 
 if [ -f "$OUTPUT_DIR/model_latest.model" ]; then
