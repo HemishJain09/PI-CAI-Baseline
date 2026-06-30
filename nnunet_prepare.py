@@ -56,6 +56,18 @@ def prepare_nnunet_data(
     
     print(f"Found {len(cases)} cases in {t2_dir}")
     
+    # Filter by splits.json to save disk space if provided
+    if splits_json_path and splits_json_path.exists():
+        with open(splits_json_path, 'r') as f:
+            splits_data = json.load(f)
+        allowed_cases = set()
+        for fold in splits_data:
+            allowed_cases.update(fold.get('train', []))
+            allowed_cases.update(fold.get('val', []))
+        if allowed_cases:
+            cases = [c for c in cases if c in allowed_cases]
+            print(f"Filtered to {len(cases)} cases based on splits.json (saving disk space!)")
+    
     # Optionally limit the number of cases for sanity testing
     if max_cases is not None and max_cases < len(cases):
         import random
