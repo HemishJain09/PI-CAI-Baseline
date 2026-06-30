@@ -26,6 +26,11 @@ export nnUNet_preprocessed="$WORKSPACE_DIR/nnUNet_preprocessed"
 # Results folder should point to Google Drive to persist checkpoints safely
 export RESULTS_FOLDER="${RESULTS_FOLDER:-/content/drive/MyDrive/PI-CAI_Results}"
 
+# Memory optimizations for Colab (prevents OOM Killer)
+export nnUNet_n_proc_DA=2
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
 # Ensure directories exist
 mkdir -p "$nnUNet_raw_data_base"
 mkdir -p "$nnUNet_preprocessed"
