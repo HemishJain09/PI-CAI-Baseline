@@ -5,6 +5,18 @@ from pathlib import Path
 import SimpleITK as sitk
 import numpy as np
 from tqdm import tqdm
+import gzip
+
+def copy_and_compress(src: Path, dest: Path):
+    """Copies a file to dest. If the source is a raw .nii, it compresses it to .nii.gz on the fly."""
+    if not src.exists():
+        return
+    if src.suffix == '.nii' and dest.name.endswith('.nii.gz'):
+        with open(src, 'rb') as f_in:
+            with gzip.open(dest, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+    else:
+        shutil.copy2(src, dest)
 
 def generate_empty_mask(reference_image_path: Path, output_path: Path):
     """Generates an empty (all zeros) mask matching the geometry of the reference image."""
@@ -35,9 +47,12 @@ def prepare_nnunet_data(
     hbv_dir = source_dir / "hbv_reg"
     lesion_dir = source_dir / "lesion_masks"
     
-    # Get all patient cases from T2 directory
+    # Get all patient cases from T2 directory (support both .nii.gz and .nii)
     t2_files = list(t2_dir.glob("*.nii.gz"))
-    cases = sorted([f.name.replace(".nii.gz", "") for f in t2_files])
+    if len(t2_files) == 0:
+        t2_files = list(t2_dir.glob("*.nii"))
+        
+    cases = sorted([f.name.replace(".nii.gz", "").replace(".nii", "") for f in t2_files])
     
     print(f"Found {len(cases)} cases in {t2_dir}")
     
@@ -51,10 +66,18 @@ def prepare_nnunet_data(
     valid_cases = []
     
     for case in tqdm(cases, desc="Formatting cases"):
+        # Resolve exact source paths (they could be .nii or .nii.gz)
         t2_file = t2_dir / f"{case}.nii.gz"
+        if not t2_file.exists(): t2_file = t2_dir / f"{case}.nii"
+        
         adc_file = adc_dir / f"{case}.nii.gz"
+        if not adc_file.exists(): adc_file = adc_dir / f"{case}.nii"
+        
         hbv_file = hbv_dir / f"{case}.nii.gz"
+        if not hbv_file.exists(): hbv_file = hbv_dir / f"{case}.nii"
+        
         lesion_file = lesion_dir / f"{case}.nii.gz"
+        if not lesion_file.exists(): lesion_file = lesion_dir / f"{case}.nii"
         
         # Check if core modalities exist
         if not all(p.exists() for p in [t2_file, adc_file, hbv_file]):
@@ -69,11 +92,10 @@ def prepare_nnunet_data(
         dest_hbv = imagesTr / f"{case}_0002.nii.gz"
         dest_label = labelsTr / f"{case}.nii.gz"
         
-        # Explicitly copy instead of symlink because Google Drive mounted on Colab 
-        # strictly rejects cross-filesystem symlinks, and we need the files on the fast NVMe disk.
-        if not dest_t2.exists(): shutil.copy2(t2_file, dest_t2)
-        if not dest_adc.exists(): shutil.copy2(adc_file, dest_adc)
-        if not dest_hbv.exists(): shutil.copy2(hbv_file, dest_hbv)
+        # Explicitly copy and compress on the fly if needed
+        if not dest_t2.exists(): copy_and_compress(t2_file, dest_t2)
+        if not dest_adc.exists(): copy_and_compress(adc_file, dest_adc)
+        if not dest_hbv.exists(): copy_and_compress(hbv_file, dest_hbv)
 
         # Handle Label (and protect against corrupted PI-CAI mask files)
         if not dest_label.exists():
@@ -88,7 +110,7 @@ def prepare_nnunet_data(
                     pass
             
             if is_valid_mask:
-                shutil.copy2(lesion_file, dest_label)
+                copy_and_compress(lesion_file, dest_label)
             else:
                 # If lesion mask is missing (clinically negative) or corrupted, generate a zero mask
                 generate_empty_mask(t2_file, dest_label)
