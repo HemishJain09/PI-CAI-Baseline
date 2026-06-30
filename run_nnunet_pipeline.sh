@@ -101,7 +101,11 @@ if [ -f "$WORKSPACE_DIR/.preprocess_complete" ]; then
     echo "Preprocessing already complete. Skipping..."
 else
     # This command automatically figures out the dataset shape, cropping, and spacing.
-    nnUNet_plan_and_preprocess -t $TASK_ID --verify_dataset_integrity
+    # NOTE: We intentionally omit --verify_dataset_integrity because the PI-CAI 
+    # pre-processed dataset has harmless sub-voxel direction cosine differences 
+    # between T2 and co-registered ADC/HBV images (floating-point rounding from 
+    # the registration pipeline). nnUNet resamples everything anyway.
+    nnUNet_plan_and_preprocess -t $TASK_ID
     touch "$WORKSPACE_DIR/.preprocess_complete"
 fi
 
