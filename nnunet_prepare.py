@@ -18,6 +18,19 @@ def copy_and_compress(src: Path, dest: Path):
     else:
         shutil.copy2(src, dest)
 
+def process_and_binarize_mask(src: Path, dest: Path):
+    """Reads a lesion mask, binarizes it (all non-zero -> 1), and saves as compressed .nii.gz."""
+    if not src.exists():
+        return
+    img = sitk.ReadImage(str(src))
+    arr = sitk.GetArrayFromImage(img)
+    # Force all non-zero labels to 1 (csPCa)
+    arr[arr > 0] = 1
+    arr = arr.astype(np.uint8)
+    bin_img = sitk.GetImageFromArray(arr)
+    bin_img.CopyInformation(img)
+    sitk.WriteImage(bin_img, str(dest))
+
 def generate_empty_mask(reference_image_path: Path, output_path: Path):
     """Generates an empty (all zeros) mask matching the geometry of the reference image."""
     ref_img = sitk.ReadImage(str(reference_image_path))
@@ -122,7 +135,7 @@ def prepare_nnunet_data(
                     pass
             
             if is_valid_mask:
-                copy_and_compress(lesion_file, dest_label)
+                process_and_binarize_mask(lesion_file, dest_label)
             else:
                 # If lesion mask is missing (clinically negative) or corrupted, generate a zero mask
                 generate_empty_mask(t2_file, dest_label)
