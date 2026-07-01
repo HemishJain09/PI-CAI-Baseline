@@ -184,6 +184,14 @@ else
     touch "$WORKSPACE_DIR/.zonal_integration_complete"
 fi
 
+# 5.5 Free up Disk Space before Training
+# ------------------------------------------------------------------------------
+echo -e "\n>>> STEP 3.5: Cleaning up raw data to free up disk space for Kaggle VMs..."
+if [ -d "$nnUNet_raw_data_base" ]; then
+    rm -rf "$nnUNet_raw_data_base"
+    echo "Deleted nnUNet_raw_data_base to free up ~15 GB of disk space."
+fi
+
 # 6. Train the Model
 # ------------------------------------------------------------------------------
 echo -e "\n>>> STEP 4: Training Fold 0..."
