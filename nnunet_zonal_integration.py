@@ -28,9 +28,11 @@ def prepare_zonal_mask_npz(
     for file in tqdm(pkl_files, desc="Processing Zonal Masks"):
         file_name = file.name[:13] # e.g. 10000_1000000
         zonal_mask_path = zonal_masks_dir / f"{file_name}.nii.gz"
-        
         if not zonal_mask_path.exists():
-            print(f"Warning: Zonal mask {zonal_mask_path} not found. Skipping...")
+            zonal_mask_path = zonal_masks_dir / f"{file_name}.nii"
+            
+        if not zonal_mask_path.exists():
+            print(f"Warning: Zonal mask {file_name} not found. Skipping...")
             continue
             
         with open(file, 'rb') as f:
